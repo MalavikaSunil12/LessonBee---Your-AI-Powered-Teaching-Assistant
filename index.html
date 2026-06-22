@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LessonBee - Educational Notebook LLM</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bee: {
+              50: '#FEFCE8',
+              100: '#FEF9C3',
+              400: '#FACC15',
+              500: '#EAB308',
+              600: '#CA8A04',
+              900: '#713F12',
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Icons (FontAwesome) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Math Formula Support (KaTeX) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Libraries for PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* Custom Bee Animations */
+    @keyframes hover {
+      0%, 100% { transform: translateY(0px) rotate(-3deg); }
+      50% { transform: translateY(-8px) rotate(3deg); }
+    }
+    @keyframes flap {
+      0%, 100% { transform: rotateY(0deg) rotate(-30deg); }
+      50% { transform: rotateY(70deg) rotate(-30deg); }
+    }
+    @keyframes flapRight {
+      0%, 100% { transform: rotateY(0deg) rotate(25deg); }
+      50% { transform: rotateY(70deg) rotate(25deg); }
+    }
+    
+    .bee-wrapper {
+      animation: hover 3s ease-in-out infinite;
+      display: inline-block;
+    }
+    .bee-wing-l {
+      transform-origin: center;
+      animation: flap 0.1s infinite alternate;
+    }
+    .bee-wing-r {
+      transform-origin: center;
+      animation: flapRight 0.1s infinite alternate;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #FACC15; border-radius: 4px; }
+    
+    .hide { display: none !important; }
+
+    /* Neo-brutalist custom styling shadows */
+    .brutal-shadow {
+      box-shadow: 4px 4px 0px 0px #000;
+    }
+    .dark .brutal-shadow {
+      box-shadow: 4px 4px 0px 0px #FACC15;
+    }
+    .brutal-shadow-lg {
+      box-shadow: 8px 8px 0px 0px #000;
+    }
+    .dark .brutal-shadow-lg {
+      box-shadow: 8px 8px 0px 0px #FACC15;
+    }
+
+    /* Bee Theme Stripe pattern */
+    .bee-stripes {
+      background: repeating-linear-gradient(45deg, #000, #000 10px, #FACC15 10px, #FACC15 20px);
+    }
+    .dark .bee-stripes {
+      background: repeating-linear-gradient(45deg, #FACC15, #FACC15 10px, #000 10px, #000 20px);
+    }
+
+    /* --- RESPONSIVE MOBILE & EMULATOR LAYOUT ENGINE --- */
+    
+    /* Default Mobile-first tab logic */
+    #col-files, #col-pdf, #col-chat { display: none; width: 100%; }
+    #col-files.active-tab, #col-pdf.active-tab, #col-chat.active-tab { display: flex; }
+    .bottom-nav { display: flex; }
+
+    /* Standard Desktop Overrides */
+    @media (min-width: 768px) {
+      .app-wrapper:not(.emulate-mobile) #col-files { display: flex !important; width: 20% !important; min-width: 240px !important; border-right: 4px solid #000; }
+      .app-wrapper:not(.emulate-mobile) #col-pdf { display: flex !important; width: 50% !important; border-right: 4px solid #000; }
+      .app-wrapper:not(.emulate-mobile) #col-chat { display: flex !important; width: 30% !important; min-width: 320px !important; }
+      .app-wrapper:not(.emulate-mobile) .bottom-nav { display: none !important; }
+    }
+
+    /* Emulator overrides to force App container into a Mobile Frame */
+    .app-wrapper.emulate-mobile {
+      width: 100% !important;
+      max-width: 390px !important;
+      height: 844px !important;
+      max-height: 95vh !important;
+      border-radius: 2.5rem !important;
+      border: 12px solid #171717 !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+      margin: auto !important;
+      overflow: hidden;
+    }
+    .dark .app-wrapper.emulate-mobile {
+      border-color: #000000 !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9) !important;
+    }
+  </style>
+</head>
+<body class="bg-neutral-200 dark:bg-neutral-800 font-mono h-screen overflow-hidden flex items-center justify-center transition-colors duration-300">
+
+  <!-- Core App Container (Adapts via wrapper logic for Emulator) -->
+  <div id="app-wrapper" class="app-wrapper w-full h-full bg-yellow-50 text-neutral-950 dark:bg-neutral-950 dark:text-yellow-50 flex flex-col transition-all duration-500 relative">
+
+    <!-- Notification Banner / Custom Toast System -->
+    <div id="toast-container" class="absolute top-4 right-4 z-50 flex flex-col gap-2 max-w-[280px]"></div>
+
+    <!-- ================= AUTHENTICATION VIEWS ================= -->
+    
+    <!-- Login Screen -->
+    <div id="view-login" class="flex-1 flex flex-col items-center p-4 z-10 relative overflow-y-auto">
+      <div class="h-2 w-full bee-stripes absolute top-0 left-0"></div>
+      
+      <!-- Emulator Toggle Feature -->
+      <div class="absolute top-6 right-4 md:top-8 md:right-8 z-50">
+        <button type="button" onclick="toggleMobileEmulation()" class="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 border-2 border-black bg-bee-400 text-black brutal-shadow hover:-translate-y-0.5 transition-transform" title="Toggle Simulator">
+          <i id="emulator-icon" class="fa-solid fa-mobile-screen text-lg md:text-xl"></i>
+        </button>
+      </div>
+
+      <div class="w-full max-w-md p-6 md:p-8 border-4 border-black bg-white dark:bg-neutral-900 brutal-shadow-lg transition-all my-auto shrink-0 mt-10 md:mt-auto">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="bee-wrapper text-bee-400 w-12 h-12 md:w-14 md:h-14" id="login-bee-icon"></div>
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight uppercase">LessonBee</h1>
+            <p class="text-[9px] md:text-[10px] uppercase tracking-widest text-bee-600 dark:text-bee-400 font-bold">Notebook LLM for Educators</p>
+          </div>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase mb-2">School Email Address</label>
+            <input type="email" id="login-email" placeholder="teacher@lessonbee.com" required
+              class="w-full p-3 border-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 outline-none font-bold text-sm focus:border-black dark:focus:border-bee-400 transition-colors" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase mb-2">Password</label>
+            <input type="password" id="login-password" placeholder="••••••••••••" required
+              class="w-full p-3 border-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 outline-none font-bold text-sm focus:border-black dark:focus:border-bee-400 transition-colors" />
+          </div>
+          <button type="submit" class="w-full p-3 font-extrabold text-sm uppercase border-2 tracking-widest transition-transform transform hover:-translate-y-0.5 border-black bg-black text-white hover:bg-neutral-800 dark:border-bee-400 dark:bg-bee-400 dark:text-black dark:hover:bg-bee-500">
+            Request OTP Access
+          </button>
+        </form>
+        
+        <div class="mt-6 flex items-center justify-between text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-70">
+          <button onclick="showToast('Password reset link simulated.', 'info')" class="hover:underline hover:text-bee-500">Forgot Password?</button>
+          <button onclick="showToast('Account registration sandbox enabled.', 'info')" class="hover:underline hover:text-bee-500">Create User</button>
+        </div>
+        <div class="mt-8 pt-6 border-t-2 border-dashed border-neutral-300 dark:border-neutral-700">
+          <button onclick="fillDemoCredentials()" type="button" class="w-full py-2 bg-bee-400/10 text-bee-600 dark:text-bee-400 font-bold text-xs uppercase border-2 border-dashed border-bee-400 hover:bg-bee-400/20">
+            Use Sandbox Demo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OTP Screen -->
+    <div id="view-otp" class="flex-1 flex flex-col items-center p-4 z-10 relative hide overflow-y-auto">
+      <div class="h-2 w-full bee-stripes absolute top-0 left-0"></div>
+      <div class="w-full max-w-md p-6 md:p-8 border-4 border-black bg-white dark:bg-neutral-900 brutal-shadow-lg transition-all text-center my-auto shrink-0">
+        <i class="fa-solid fa-key text-4xl md:text-5xl text-bee-400 mb-4 animate-bounce"></i>
+        <h2 class="text-xl md:text-2xl font-black uppercase tracking-tight">Two-Factor Auth</h2>
+        <p class="text-[10px] md:text-xs opacity-80 mt-2 font-mono">
+          An OTP has been sent to <span id="display-email" class="underline text-bee-500 break-all"></span>.
+        </p>
+
+        <form id="otp-form" class="space-y-6 mt-6">
+          <div class="flex justify-center gap-2 md:gap-3">
+            <input type="text" maxlength="1" value="1" class="otp-input w-12 h-12 md:w-14 md:h-14 text-center text-xl md:text-2xl font-extrabold border-2 outline-none border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400" required />
+            <input type="text" maxlength="1" value="2" class="otp-input w-12 h-12 md:w-14 md:h-14 text-center text-xl md:text-2xl font-extrabold border-2 outline-none border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400" required />
+            <input type="text" maxlength="1" value="3" class="otp-input w-12 h-12 md:w-14 md:h-14 text-center text-xl md:text-2xl font-extrabold border-2 outline-none border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400" required />
+            <input type="text" maxlength="1" value="4" class="otp-input w-12 h-12 md:w-14 md:h-14 text-center text-xl md:text-2xl font-extrabold border-2 outline-none border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400" required />
+          </div>
+          <button type="submit" class="w-full p-3 font-extrabold text-sm uppercase border-2 tracking-widest transition-transform transform hover:-translate-y-0.5 border-black bg-black text-white hover:bg-neutral-800 dark:border-bee-400 dark:bg-bee-400 dark:text-black dark:hover:bg-bee-500">
+            Authenticate
+          </button>
+        </form>
+        <button type="button" onclick="switchView('login')" class="mt-6 w-full text-center text-[10px] md:text-xs uppercase font-extrabold opacity-60 hover:opacity-100 hover:text-bee-400 underline">
+          Back to Login
+        </button>
+      </div>
+    </div>
+
+
+    <!-- ================= MAIN DASHBOARD ================= -->
+    <div id="view-dashboard" class="flex-1 flex flex-col h-full hide relative">
+      <div class="h-1.5 w-full bee-stripes absolute top-0 left-0 z-20"></div>
+      
+      <!-- Top Header -->
+      <header class="flex-none h-14 md:h-16 border-b-4 border-black bg-white dark:bg-neutral-900 flex items-center justify-between px-3 md:px-6 mt-1.5 z-10 relative">
+        <div class="flex items-center gap-2 md:gap-3">
+          <div class="bee-wrapper text-bee-400 w-6 h-6 md:w-8 md:h-8" id="header-bee-icon"></div>
+          <div class="flex flex-col">
+            <span class="font-extrabold text-sm md:text-base tracking-tight leading-none uppercase">LessonBee</span>
+            <span class="text-[8px] md:text-[10px] opacity-80 text-bee-600 dark:text-bee-400 font-bold">Hi @<span id="nav-username"></span>!</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-3">
+          <!-- Search Grounding Toggle -->
+          <button id="search-toggle" onclick="toggleWebSearch()" class="p-1.5 md:px-3 md:py-2 border-2 text-[10px] md:text-xs font-bold uppercase flex items-center gap-1.5 transition-all border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-bee-400" title="Web Grounding">
+            <i class="fa-solid fa-globe text-neutral-400" id="search-icon"></i>
+            <span id="search-text" class="hidden md:inline">Grounding: Off</span>
+          </button>
+          
+          <!-- Dropdown for Generated Files -->
+          <select id="generated-files-dropdown" class="hide appearance-none text-[9px] md:text-xs font-bold uppercase py-1.5 md:py-2 pl-2 pr-6 border-2 outline-none cursor-pointer border-black dark:border-bee-400 bg-bee-400 text-black font-mono max-w-[100px] md:max-w-[160px] text-ellipsis">
+            <option value="">🐝 Materials</option>
+            <option value="ppt">📁 Slides</option>
+            <option value="quiz">📁 Quiz</option>
+            <option value="lessonplan">📁 Plan</option>
+          </select>
+
+          <button onclick="toggleTheme()" class="p-1.5 md:p-2 border-2 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-black dark:text-white transition-colors">
+            <i id="theme-icon" class="fa-solid fa-moon"></i>
+          </button>
+          <!-- Desktop Logout -->
+          <button onclick="handleLogout()" class="hidden md:block p-1.5 md:p-2 border-2 border-red-500/20 text-red-500 hover:bg-red-500/10 transition-colors" title="Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Multi-Column Workspace (Responsive Layout) -->
+      <div class="flex-1 flex flex-row overflow-hidden relative">
+        
+        <!-- COLUMN 1: Sidebar (Files) -->
+        <aside id="col-files" class="flex-col h-full overflow-hidden bg-neutral-100 dark:bg-neutral-950/60">
+          <div class="p-4 border-b-2 border-dashed border-neutral-400/40 space-y-2">
+            <button onclick="document.getElementById('pdf-upload').click()" class="w-full py-3 px-4 border-2 border-dashed font-extrabold text-xs uppercase flex items-center justify-center gap-2 border-neutral-400 dark:border-neutral-600 hover:border-black dark:hover:border-bee-400 hover:text-bee-500 transition-colors bg-white dark:bg-neutral-900">
+              <i class="fa-solid fa-upload"></i> Upload PDF
+            </button>
+            <input type="file" id="pdf-upload" accept="application/pdf" class="hidden" />
+            
+            <button onclick="loadSampleNotebook()" class="w-full py-2 px-3 border-2 font-bold text-[10px] uppercase flex items-center justify-center gap-1 bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 border-dashed border-yellow-400 hover:bg-yellow-400/20 transition-all">
+              ✨ Load Quantum Demo
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <h3 class="text-[10px] font-bold uppercase tracking-widest opacity-60">Syllabi & Materials</h3>
+            <div id="file-list" class="space-y-2">
+              <!-- Dynamically populated files -->
+            </div>
+          </div>
+        </aside>
+
+        <!-- COLUMN 2: PDF Viewer -->
+        <main id="col-pdf" class="flex-col h-full overflow-hidden bg-neutral-200 dark:bg-neutral-900 relative">
+          <div id="pdf-header" class="p-2 px-4 border-b-2 border-neutral-300 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-950 flex items-center justify-between text-[10px] md:text-xs font-bold uppercase hide">
+            <span id="pdf-title" class="truncate pr-4"></span>
+            <span id="pdf-parsing-status" class="text-bee-500 flex items-center gap-1 animate-pulse shrink-0">
+              <i class="fa-solid fa-spinner fa-spin"></i> Indexing...
+            </span>
+          </div>
+          <div id="pdf-render-container" class="flex-1 w-full h-full overflow-y-auto flex flex-col items-center p-4 md:p-8 relative hide">
+            <!-- Rendered PDF canvases injected here -->
+          </div>
+          <div id="pdf-empty-state" class="m-auto text-center opacity-70 flex flex-col items-center max-w-sm px-4">
+            <div class="bee-wrapper text-bee-400 w-12 h-12 md:w-16 md:h-16 mb-4"></div>
+            <p class="text-xs md:text-sm font-bold uppercase tracking-widest mb-2">No Syllabus Selected</p>
+            <p class="text-[10px] md:text-[11px] opacity-75 uppercase leading-relaxed">
+              Upload your course syllabus PDF or click "Load Quantum Demo" to explore.
+            </p>
+          </div>
+        </main>
+
+        <!-- COLUMN 3: Chatbot & Tools -->
+        <aside id="col-chat" class="active-tab flex-col h-full overflow-hidden bg-white dark:bg-neutral-950 border-l-4 border-transparent dark:border-neutral-900">
+          
+          <!-- Chat / API Settings -->
+          <div class="p-3 border-b-2 border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex flex-col gap-2">
+            <div class="flex justify-between items-center w-full">
+              <div class="flex items-center gap-2">
+                <span id="engine-indicator-dot" class="w-2 h-2 rounded-full bg-bee-400 animate-ping"></span>
+                <span id="engine-indicator-text" class="text-[10px] font-extrabold uppercase tracking-widest text-bee-500">Sandbox 🐝</span>
+              </div>
+              
+              <div class="relative" id="model-select-container">
+                <select id="model-select" class="appearance-none text-[10px] md:text-xs font-bold uppercase py-1 pl-2 pr-6 border-2 outline-none cursor-pointer border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400">
+                  <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Preview</option>
+                </select>
+                <i class="fa-solid fa-chevron-down absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[10px]"></i>
+              </div>
+            </div>
+
+            <!-- API Key Row -->
+            <div class="relative w-full flex items-center mt-1">
+              <input type="password" id="api-key-input" placeholder="Insert Gemini API Key or use Built-in" 
+                class="w-full text-[10px] md:text-xs font-mono pl-2 pr-16 py-1.5 border-2 outline-none transition-all border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400" />
+              <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center" id="api-status"></div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-dashed border-neutral-300 dark:border-neutral-700 pt-2 mt-1">
+              <span class="text-[9px] md:text-[10px] uppercase font-bold opacity-60">Engine:</span>
+              <div class="flex gap-2">
+                <button onclick="setEngine(true)" id="btn-sandbox" class="px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 bg-bee-400 text-black border-bee-400">Sandbox Mode</button>
+                <button onclick="setEngine(false)" id="btn-gemini" class="px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 border-neutral-400 opacity-60 hover:opacity-100 dark:text-white">Live API Key</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pedagogy Generative Tools -->
+          <div class="p-2 border-b-2 border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-950 flex flex-col gap-2">
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="handleGenerate('lessonplan')" class="col-span-1 py-2 px-1 border-2 border-neutral-300 dark:border-neutral-700 font-bold text-[8px] md:text-[9px] uppercase flex flex-col items-center justify-center gap-1 hover:border-black hover:text-bee-500 dark:hover:border-bee-400 transition-colors bg-white dark:bg-neutral-950 text-center">
+                <i class="fa-solid fa-book-open text-xs md:text-sm"></i> Plan
+              </button>
+              <button onclick="handleGenerate('quiz')" class="col-span-1 py-2 px-1 border-2 border-neutral-300 dark:border-neutral-700 font-bold text-[8px] md:text-[9px] uppercase flex flex-col items-center justify-center gap-1 hover:border-black hover:text-bee-500 dark:hover:border-bee-400 transition-colors bg-white dark:bg-neutral-950 text-center">
+                <i class="fa-solid fa-clipboard-question text-xs md:text-sm"></i> Quiz
+              </button>
+              <button onclick="handleGenerate('ppt')" class="col-span-1 py-2 px-1 border-2 border-neutral-300 dark:border-neutral-700 font-bold text-[8px] md:text-[9px] uppercase flex flex-col items-center justify-center gap-1 hover:border-black hover:text-bee-500 dark:hover:border-bee-400 transition-colors bg-white dark:bg-neutral-950 text-center">
+                <i class="fa-solid fa-person-chalkboard text-xs md:text-sm"></i> Slides
+              </button>
+            </div>
+            <div id="live-quiz-launch-container" class="hide">
+              <button onclick="launchInteractiveQuiz()" class="w-full py-1.5 bg-green-500 text-black border-2 border-black font-extrabold text-[9px] md:text-[10px] uppercase flex items-center justify-center gap-1.5 hover:bg-green-600 transition-all">
+                <i class="fa-solid fa-circle-play"></i> Launch Exam Simulator
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat Feed -->
+          <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Messages injected here -->
+          </div>
+
+          <!-- Typing Indicator -->
+          <div id="typing-indicator" class="p-4 pb-0 hide">
+            <div class="flex items-center gap-1.5 text-[10px] md:text-xs text-bee-500 animate-pulse font-bold">
+              <i class="fa-solid fa-spinner fa-spin"></i> LessonBee processing...
+            </div>
+          </div>
+
+          <!-- Chat Input -->
+          <div class="p-2 md:p-3 border-t-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 pb-safe">
+            <form id="chat-form" class="flex gap-2">
+              <input type="text" id="chat-input" placeholder="Upload a PDF first to begin." disabled
+                class="flex-1 p-2.5 md:p-3 text-[10px] md:text-xs border-2 outline-none transition-all border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 focus:border-black dark:focus:border-bee-400 disabled:opacity-50" />
+              <button type="submit" id="chat-submit" disabled
+                class="p-2.5 md:p-3 border-2 flex items-center justify-center transition-all bg-black border-black text-white hover:bg-neutral-800 dark:bg-bee-400 dark:border-bee-400 dark:text-black dark:hover:bg-bee-500 disabled:opacity-50">
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </form>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Bottom Tab Navigation (Mobile Only) -->
+      <nav class="bottom-nav flex-none h-14 bg-white dark:bg-neutral-900 border-t-4 border-black flex items-center justify-around z-20 pb-safe relative">
+        <button class="mobile-tab-btn flex-1 h-full flex flex-col items-center justify-center gap-1 text-neutral-400 dark:text-neutral-500 hover:text-bee-500 transition-colors" data-tab="files" onclick="switchMobileTab('files')">
+          <i class="fa-solid fa-folder-open text-base md:text-lg"></i>
+          <span class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">Files</span>
+        </button>
+        <button class="mobile-tab-btn flex-1 h-full flex flex-col items-center justify-center gap-1 text-neutral-400 dark:text-neutral-500 hover:text-bee-500 transition-colors" data-tab="pdf" onclick="switchMobileTab('pdf')">
+          <i class="fa-solid fa-file-pdf text-base md:text-lg"></i>
+          <span class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">PDF Viewer</span>
+        </button>
+        <button class="mobile-tab-btn flex-1 h-full flex flex-col items-center justify-center gap-1 text-bee-500 dark:text-bee-400 transition-colors" data-tab="chat" onclick="switchMobileTab('chat')">
+          <i class="fa-solid fa-message text-base md:text-lg"></i>
+          <span class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">Bee Chat</span>
+        </button>
+        <button class="mobile-tab-btn flex-1 h-full flex flex-col items-center justify-center gap-1 text-red-500/70 hover:text-red-500 transition-colors" onclick="handleLogout()">
+          <i class="fa-solid fa-right-from-bracket text-base md:text-lg"></i>
+          <span class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">Logout</span>
+        </button>
+      </nav>
+
+    </div>
+
+
+    <!-- ================= FULLSCREEN VIEWERS (Contained within App Wrapper) ================= -->
+    
+    <!-- UNIFIED PDF VIEWER FOR QUIZ AND PPT -->
+    <div id="view-fullscreen-pdf" class="absolute inset-0 z-50 bg-neutral-900 text-white flex flex-col hide font-mono">
+      <header class="flex-none h-14 md:h-16 bg-black border-b border-neutral-800 flex items-center justify-between px-4 md:px-6 relative">
+        <div class="h-1.5 w-full bee-stripes absolute top-0 left-0"></div>
+        <div class="flex items-center gap-2 text-bee-400 font-bold uppercase tracking-widest text-[10px] md:text-sm mt-1.5">
+          <i class="fa-solid fa-file-pdf text-base"></i> <span id="fullscreen-pdf-title">PDF Viewer</span>
+        </div>
+        <div class="flex items-center gap-2 md:gap-3 mt-1.5">
+          <button id="fullscreen-pdf-download-btn" class="px-2 py-1.5 md:px-4 md:py-2 bg-green-500 hover:bg-green-600 text-black font-extrabold uppercase text-[9px] md:text-xs transition-colors border-2 border-black flex items-center gap-1.5">
+            <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">Download</span>
+          </button>
+          <button onclick="closeViewer()" class="px-2 py-1.5 md:px-4 md:py-2 bg-bee-400 text-black font-extrabold uppercase text-[9px] md:text-xs hover:bg-bee-500 transition-colors border-2 border-black">
+            <i class="fa-solid fa-arrow-left sm:mr-1"></i> <span class="hidden sm:inline">Go Back</span>
+          </button>
+        </div>
+      </header>
+      <div id="fullscreen-pdf-render-container" class="flex-1 bg-neutral-800 w-full h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+        <!-- Generated canvases drawn dynamically -->
+      </div>
+    </div>
+
+    <!-- Interactive Quiz App View -->
+    <div id="view-interactive-quiz" class="absolute inset-0 z-50 bg-yellow-50 dark:bg-neutral-950 text-neutral-900 dark:text-yellow-50 flex flex-col hide font-mono">
+      <header class="flex-none h-14 md:h-16 border-b-4 border-black bg-white dark:bg-neutral-900 flex items-center justify-between px-4 md:px-6 relative">
+        <div class="h-1.5 w-full bee-stripes absolute top-0 left-0"></div>
+        <div class="flex items-center gap-2 md:gap-3 mt-1.5">
+          <div class="text-bee-400 text-lg md:text-xl"><i class="fa-solid fa-graduation-cap animate-bounce"></i></div>
+          <span class="font-extrabold text-[10px] md:text-sm uppercase tracking-wider truncate max-w-[200px] md:max-w-none" id="int-quiz-header-title">Virtual Exam</span>
+        </div>
+        <button onclick="closeViewer()" class="px-3 py-1.5 md:px-4 md:py-2 mt-1.5 bg-red-500 text-white font-bold uppercase text-[9px] md:text-xs hover:bg-red-600 transition-colors border-2 border-black">
+          Exit Test
+        </button>
+      </header>
+      <div class="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center items-start">
+        <div class="w-full max-w-2xl bg-white dark:bg-neutral-900 border-4 border-black p-4 md:p-8 brutal-shadow relative">
+          <!-- Interactive questions -->
+          <div id="int-quiz-card">
+            <!-- Content populated via Javascript -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- End App Wrapper -->
+
+
+  <!-- ================= LOGIC AND SCRIPTING ================= -->
+  <script>
+    // --- Environment Provided API Key (Injected by execution environment) ---
+    const apiKey = ""; 
+
+    // --- SVG Bee String ---
+    const beeSVG = `
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+        <ellipse cx="12" cy="13" rx="4" ry="6" fill="currentColor" stroke="#000" stroke-width="1.5" transform="rotate(-15 12 13)" />
+        <path d="M9.5 11C10.5 10.5 12.5 10.5 13.5 11.2" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
+        <path d="M8.8 13.5C10 13 12.5 13 13.8 14" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
+        <path d="M9.2 16C10.2 15.5 12.2 15.8 13 16.5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
+        <ellipse class="bee-wing-l" cx="8" cy="8" rx="2.5" ry="4" fill="white" fill-opacity="0.9" stroke="#000" stroke-width="1" transform="rotate(-45 8 8)" />
+        <ellipse class="bee-wing-r" cx="16" cy="9" rx="2.5" ry="4" fill="white" fill-opacity="0.9" stroke="#000" stroke-width="1" transform="rotate(35 16 9)" />
+        <path d="M11 7C10.5 5 9.5 4.5 9 4.5" stroke="#000" stroke-width="1" stroke-linecap="round" />
+        <circle cx="9" cy="4" r="1" fill="#000" />
+        <path d="M13 7C13.5 5 14.5 4.5 15 4.5" stroke="#000" stroke-width="1" stroke-linecap="round" />
+        <circle cx="15" cy="4" r="1" fill="#000" />
+      </svg>
+    `;
+
+    document.getElementById('login-bee-icon').innerHTML = beeSVG;
+    document.getElementById('header-bee-icon').innerHTML = beeSVG;
+    document.querySelector('#pdf-empty-state .bee-wrapper').innerHTML = beeSVG;
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    // --- Core Application State ---
+    let state = {
+      isDarkMode: true,
+      isMobileEmulated: false,
+      email: '',
+      userName: '',
+      apiKey: apiKey, // Assign the system api key if present
+      useSandboxAI: !apiKey, // Default to sandbox only if no key
+      googleSearchGrounding: false,
+      files: [],
+      selectedFileId: null,
+      messages: [
+        { role: 'assistant', text: "Welcome to LessonBee! 🐝\n\nI am configured for Educational Generation. Upload a syllabus or load a demo to get started.\n\n👉 Use the tabs below or the sidebar to navigate your curriculum files!" }
+      ],
+      isTyping: false,
+      
+      generatedQuizJSON: null,
+      generatedQuizArrayBuffer: null, 
+      generatedQuizTitle: '',
+      generatedPPTArrayBuffer: null,
+      generatedPPTTitle: '',
+      generatedLessonPlanArrayBuffer: null,
+      generatedLessonPlanTitle: '',
+
+      interactiveAnswers: {},
+      interactiveSubmitted: false
+    };
+
+    // Auto-setup Environment Built-in key if available
+    document.addEventListener("DOMContentLoaded", () => {
+      if (apiKey) {
+        const keyInput = document.getElementById('api-key-input');
+        keyInput.value = 'Environment Token Injected';
+        keyInput.disabled = true;
+        updateAPIStatus();
+        setEngine(false); // Force live mode
+      }
+    });
+
+    // --- Mobile Layout & Emulator Logic ---
+    function switchMobileTab(tab) {
+      ['files', 'pdf', 'chat'].forEach(t => {
+        document.getElementById(`col-${t}`).classList.toggle('active-tab', t === tab);
+      });
+      document.querySelectorAll('.mobile-tab-btn[data-tab]').forEach(btn => {
+        const isSelected = btn.dataset.tab === tab;
+        btn.classList.toggle('text-bee-500', isSelected);
+        btn.classList.toggle('dark:text-bee-400', isSelected);
+        btn.classList.toggle('text-neutral-400', !isSelected);
+        btn.classList.toggle('dark:text-neutral-500', !isSelected);
+      });
+    }
+
+    function toggleMobileEmulation() {
+      state.isMobileEmulated = !state.isMobileEmulated;
+      const wrapper = document.getElementById('app-wrapper');
+      const icon = document.getElementById('emulator-icon');
+      
+      if (state.isMobileEmulated) {
+        wrapper.classList.add('emulate-mobile');
+        icon.classList.replace('fa-mobile-screen', 'fa-desktop');
+        showToast("Switched to Mobile Simulator", "info");
+      } else {
+        wrapper.classList.remove('emulate-mobile');
+        icon.classList.replace('fa-desktop', 'fa-mobile-screen');
+        showToast("Switched to Responsive Desktop", "info");
+      }
+      // Re-render canvases to fix scale when dramatically changing resolution
+      setTimeout(() => renderPDFViewer(), 350); 
+    }
+
+    // --- Custom Toast notifications ---
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `p-3 border-2 border-black font-mono font-bold text-[10px] md:text-xs uppercase brutal-shadow transition-all transform translate-y-2 opacity-0 flex items-center justify-between gap-4 w-[280px] md:w-auto ${
+        type === 'success' ? 'bg-green-400 text-black' :
+        type === 'error' ? 'bg-red-500 text-white' :
+        'bg-bee-400 text-black'
+      }`;
+      
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="${type === 'success' ? 'fa-solid fa-circle-check' : type === 'error' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-info-circle'}"></i>
+          <span>${message}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-xs hover:scale-115 transition-transform"><i class="fa-solid fa-xmark"></i></button>
+      `;
+      
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove('opacity-0', 'translate-y-2'), 50);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // --- Theme Control ---
+    function toggleTheme() {
+      state.isDarkMode = !state.isDarkMode;
+      document.documentElement.classList.toggle('dark', state.isDarkMode);
+      document.getElementById('theme-icon').className = state.isDarkMode ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+
+    // --- Interactive Views Navigation ---
+    function switchView(viewName) {
+      document.getElementById('view-login').classList.add('hide');
+      document.getElementById('view-otp').classList.add('hide');
+      document.getElementById('view-dashboard').classList.add('hide');
+      document.getElementById(`view-${viewName}`).classList.remove('hide');
+    }
+
+    // --- Answer Parsing Engine ---
+    function getCorrectLetter(q) {
+      let ans = (q.answer || '').trim();
+      if (ans.length > 1) {
+        let match = ans.match(/^([A-D])[\)\.\-]/i);
+        if (match) return match[1].toUpperCase();
+
+        const optIdx = q.options.findIndex(o => {
+          const cleanO = o.trim().toLowerCase();
+          const cleanA = ans.toLowerCase();
+          return cleanO === cleanA || cleanA.includes(cleanO) || cleanO.includes(cleanA);
+        });
+        if (optIdx !== -1) return String.fromCharCode(65 + optIdx);
+      }
+      return ans.charAt(0).toUpperCase();
+    }
+
+    // --- Interactive Quiz Launcher ---
+    function launchInteractiveQuiz() {
+      if (!state.generatedQuizJSON) return;
+      state.interactiveAnswers = {};
+      state.interactiveSubmitted = false;
+      document.getElementById('view-interactive-quiz').classList.remove('hide');
+      renderInteractiveQuiz();
+    }
+
+    function renderInteractiveQuiz() {
+      const qCard = document.getElementById('int-quiz-card');
+      const quiz = state.generatedQuizJSON;
+      
+      let html = `<h2 class="text-lg md:text-2xl font-black uppercase border-b-4 border-black pb-3 mb-6 leading-tight">${quiz.quizTitle || "Practice Exam Simulator"}</h2>`;
+      
+      quiz.questions.forEach((q, qIdx) => {
+        const correctLetter = getCorrectLetter(q);
+        
+        html += `
+          <div class="mb-6 p-4 border-2 border-black bg-neutral-50 dark:bg-neutral-800 rounded-sm font-mono">
+            <p class="font-bold text-xs md:text-sm mb-3 text-neutral-800 dark:text-yellow-50">${qIdx + 1}. ${q.question}</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono">
+        `;
+        
+        q.options.forEach((opt, optIdx) => {
+          const letter = String.fromCharCode(65 + optIdx);
+          const isSelected = state.interactiveAnswers[qIdx] === letter;
+          
+          let btnClass = "border-2 border-black p-3 text-[10px] md:text-xs text-left font-bold transition-all ";
+          if (isSelected) {
+            btnClass += "bg-black text-white dark:bg-bee-400 dark:text-black";
+          } else {
+            btnClass += "bg-white text-neutral-900 dark:bg-neutral-950 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900";
+          }
+
+          if (state.interactiveSubmitted) {
+            if (letter === correctLetter) btnClass += " !bg-green-500 !text-black";
+            else if (isSelected && letter !== correctLetter) btnClass += " !bg-red-500 !text-white";
+          }
+
+          html += `
+            <button onclick="selectInteractiveAnswer(${qIdx}, '${letter}')" ${state.interactiveSubmitted ? 'disabled' : ''} class="${btnClass}">
+              <span class="mr-1 text-bee-600 dark:text-bee-400">[ ${letter} ]</span> ${opt}
+            </button>
+          `;
+        });
+
+        html += `</div>`;
+        if (state.interactiveSubmitted) {
+          html += `
+            <div class="mt-3 p-2 bg-yellow-400/10 border border-dashed border-yellow-500 text-[9px] md:text-[11px] uppercase">
+              <span class="font-black">Explanation:</span> ${q.explanation || "No explanation provided."}
+            </div>
+          `;
+        }
+        html += `</div>`;
+      });
+
+      if (!state.interactiveSubmitted) {
+        html += `
+          <button onclick="submitInteractiveQuiz()" class="w-full py-3 bg-bee-400 text-black border-2 border-black font-extrabold uppercase text-xs md:text-sm brutal-shadow hover:translate-x-0.5 hover:translate-y-0.5">
+            Submit Practice Exam
+          </button>
+        `;
+      } else {
+        let score = 0;
+        quiz.questions.forEach((q, idx) => {
+          if (state.interactiveAnswers[idx] === getCorrectLetter(q)) score++;
+        });
+        
+        html += `
+          <div class="mt-6 p-4 border-2 border-black bg-bee-400/20 text-center rounded-sm">
+            <h3 class="text-lg md:text-xl font-black uppercase">Result: ${score} / ${quiz.questions.length}</h3>
+            <p class="text-[10px] md:text-xs uppercase mt-1">Accuracy: ${Math.round((score / quiz.questions.length) * 100)}%</p>
+            <button onclick="closeViewer()" class="mt-4 px-6 py-2 bg-black text-white font-bold uppercase text-[10px] md:text-xs hover:bg-neutral-800 transition-all">
+              Return to Dashboard
+            </button>
+          </div>
+        `;
+      }
+      qCard.innerHTML = html;
+    }
+
+    function selectInteractiveAnswer(qIdx, letter) {
+      state.interactiveAnswers[qIdx] = letter;
+      renderInteractiveQuiz();
+    }
+
+    function submitInteractiveQuiz() {
+      for (let i = 0; i < state.generatedQuizJSON.questions.length; i++) {
+        if (!state.interactiveAnswers[i]) return showToast("Please answer all questions before submitting!", "warning");
+      }
+      state.interactiveSubmitted = true;
+      renderInteractiveQuiz();
+    }
+
+    // --- Authentication Flow ---
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const emailInput = document.getElementById('login-email').value;
+      if (!emailInput.endsWith('@lessonbee.com') && emailInput !== 'teacher@school.edu') {
+        showToast("Access limited to educational school emails.", "error");
+        return;
+      }
+      state.email = emailInput;
+      state.userName = emailInput.split('@')[0].toUpperCase();
+      document.getElementById('display-email').innerText = state.email;
+      switchView('otp');
+      showToast("Access code generated successfully.", "success");
+    });
+
+    function fillDemoCredentials() {
+      document.getElementById('login-email').value = 'teacher@lessonbee.com';
+      document.getElementById('login-password').value = 'lessonbee2026';
+    }
+
+    const otpInputs = document.querySelectorAll('.otp-input');
+    otpInputs.forEach((input, idx) => {
+      input.addEventListener('input', (e) => {
+        if(e.target.value.length === 1 && idx < otpInputs.length - 1) otpInputs[idx + 1].focus();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === "Backspace" && idx > 0 && !e.target.value) otpInputs[idx - 1].focus();
+      });
+    });
+
+    document.getElementById('otp-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('nav-username').innerText = state.userName;
+      switchView('dashboard');
+      showToast("Signed in securely as: " + state.userName, "success");
+      renderChat();
+    });
+
+    function handleLogout() {
+      state.files = [];
+      state.selectedFileId = null;
+      state.messages = [state.messages[0]];
+      state.generatedQuizJSON = null;
+      state.generatedQuizArrayBuffer = null;
+      state.generatedQuizTitle = '';
+      state.generatedPPTArrayBuffer = null;
+      state.generatedPPTTitle = '';
+      state.generatedLessonPlanArrayBuffer = null;
+      state.generatedLessonPlanTitle = '';
+      
+      // Preserve built in api key state on logout
+      if (!apiKey) {
+          state.apiKey = '';
+          document.getElementById('api-key-input').value = '';
+          updateAPIStatus();
+      }
+      updateDropdownVisibility();
+      renderFiles();
+      renderPDFViewer();
+      switchView('login');
+      showToast("Logged out successfully.", "info");
+    }
+
+    // --- API and Engine Switching Settings ---
+    document.getElementById('api-key-input').addEventListener('input', (e) => {
+      if (apiKey) return; // Prevent overwriting injected key
+      state.apiKey = e.target.value.trim();
+      updateAPIStatus();
+    });
+
+    function updateAPIStatus() {
+      const container = document.getElementById('api-status');
+      if (state.apiKey.length > 20 || apiKey) {
+        container.innerHTML = `<span class="text-[8px] md:text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 border border-green-500/20">LIVE</span>`;
+        setEngine(false);
+      } else if (state.apiKey.length > 0) {
+        container.innerHTML = `<span class="text-[8px] md:text-[10px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 border border-red-500/20">ERROR</span>`;
+      } else {
+        container.innerHTML = '';
+        setEngine(true);
+      }
+    }
+
+    function toggleWebSearch() {
+      state.googleSearchGrounding = !state.googleSearchGrounding;
+      const btn = document.getElementById('search-toggle');
+      const icon = document.getElementById('search-icon');
+      const text = document.getElementById('search-text');
+      
+      if(state.googleSearchGrounding) {
+        btn.classList.add('bg-green-500/10', 'border-green-500', 'text-green-500');
+        icon.className = "fa-solid fa-globe text-green-500";
+        text.innerText = "Grounding: On";
+        showToast("Google Search Grounding activated.", "success");
+      } else {
+        btn.classList.remove('bg-green-500/10', 'border-green-500', 'text-green-500');
+        icon.className = "fa-solid fa-globe text-neutral-400";
+        text.innerText = "Grounding: Off";
+        showToast("Standard Document Context lock on.", "info");
+      }
+    }
+
+    function setEngine(useSandbox) {
+      if (!useSandbox && !state.apiKey && !apiKey) return showToast("Insert a valid Gemini API Key first.", "error");
+      
+      state.useSandboxAI = useSandbox;
+      const dot = document.getElementById('engine-indicator-dot');
+      const text = document.getElementById('engine-indicator-text');
+      const btnSand = document.getElementById('btn-sandbox');
+      const btnGem = document.getElementById('btn-gemini');
+
+      if(useSandbox) {
+        dot.className = "w-2 h-2 rounded-full bg-bee-400 animate-ping";
+        text.innerText = "Sandbox 🐝";
+        btnSand.className = "px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 bg-bee-400 text-black border-bee-400";
+        btnGem.className = "px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 border-neutral-400 opacity-60 hover:opacity-100 dark:text-white";
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-green-500 animate-ping";
+        text.innerText = "Live Gemini";
+        btnSand.className = "px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 border-neutral-400 opacity-60 hover:opacity-100 dark:text-white";
+        btnGem.className = "px-2 py-0.5 text-[8px] md:text-[9px] font-bold uppercase border-2 bg-green-600 text-white border-green-600";
+      }
+    }
+
+    // --- Loading Prebuilt Demo Material ---
+    function loadSampleNotebook() {
+      const fileId = "quantum-demo-id";
+      if (state.files.find(f => f.id === fileId)) {
+        selectFile(fileId);
+        showToast("Demo already loaded.", "info");
+        return;
+      }
+
+      state.files.push({
+        id: fileId, name: "Quantum_Mechanics_101.pdf",
+        parsedData: [
+          { pageNumber: 1, text: "Lecture 1: Classical vs. Quantum Mechanics. Wave-Particle Duality, Schrödinger equation: Hψ = Eψ." },
+          { pageNumber: 2, text: "Lecture 2: Heisenberg Uncertainty Principle: Δx Δp ≥ ℏ/2. Non-simultaneous precision limitation." },
+          { pageNumber: 3, text: "Lecture 3: Quantum Superposition and Quantum Tunneling. Probabilistic wave function collapse." },
+          { pageNumber: 4, text: "Lecture 4: Bohr Model of Quantum Atom. Quantized energy shells: E = -13.6 eV / n^2." }
+        ],
+        isParsing: false, isSample: true,
+        generatedQuizJSON: null, generatedQuizArrayBuffer: null, generatedQuizTitle: '',
+        generatedPPTArrayBuffer: null, generatedPPTTitle: '',
+        generatedLessonPlanArrayBuffer: null, generatedLessonPlanTitle: ''
+      });
+      
+      selectFile(fileId);
+      showToast("Quantum Mechanics Demo loaded to workspace.", "success");
+    }
+
+    // --- File Parsing and Document Management ---
+    document.getElementById('pdf-upload').addEventListener('change', async (e) => {
+      const fileList = Array.from(e.target.files);
+      if(!fileList.length) return;
+
+      for (const file of fileList) {
+        if(file.type !== 'application/pdf') { 
+          showToast("Unsupported file type. Please upload a PDF.", "error"); 
+          continue; 
+        }
+        
+        const fileId = Math.random().toString(36).substring(7);
+        const url = URL.createObjectURL(file);
+        
+        state.files.push({
+          id: fileId, name: file.name, file: file, url: url, parsedData: null, isParsing: true,
+          generatedQuizJSON: null, generatedQuizArrayBuffer: null, generatedQuizTitle: '',
+          generatedPPTArrayBuffer: null, generatedPPTTitle: '',
+          generatedLessonPlanArrayBuffer: null, generatedLessonPlanTitle: ''
+        });
+        
+        if(!state.selectedFileId) {
+          selectFile(fileId);
+        } else {
+          renderFiles();
+          renderPDFViewer();
+          updateDropdownVisibility();
+          switchMobileTab('pdf'); // Auto jump to doc viewer on mobile
+        }
+        
+        showToast("Indexing syllabus text content...", "info");
+
+        try {
+          const textData = await extractTextFromPDF(file);
+          const fIdx = state.files.findIndex(f => f.id === fileId);
+          if(fIdx > -1) {
+            state.files[fIdx].parsedData = textData;
+            state.files[fIdx].isParsing = false;
+            renderFiles();
+            renderPDFViewer();
+            updateChatInputState();
+            showToast("Syllabus Indexed successfully!", "success");
+          }
+        } catch(err) {
+          console.error("Parse Error", err);
+          showToast("Error extracting text from PDF. Falling back.", "error");
+        }
+      }
+    });
+
+    async function extractTextFromPDF(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let extracted = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        extracted.push({ pageNumber: i, text: content.items.map(item => item.str).join(' ') });
+      }
+      return extracted;
+    }
+
+    function selectFile(id) {
+      state.selectedFileId = id;
+      const file = state.files.find(f => f.id === id);
+      
+      if (file) {
+        state.generatedQuizJSON = file.generatedQuizJSON || null;
+        state.generatedQuizArrayBuffer = file.generatedQuizArrayBuffer || null;
+        state.generatedQuizTitle = file.generatedQuizTitle || '';
+        state.generatedPPTArrayBuffer = file.generatedPPTArrayBuffer || null;
+        state.generatedPPTTitle = file.generatedPPTTitle || '';
+        state.generatedLessonPlanArrayBuffer = file.generatedLessonPlanArrayBuffer || null;
+        state.generatedLessonPlanTitle = file.generatedLessonPlanTitle || '';
+      } else {
+        state.generatedQuizJSON = null;
+        state.generatedQuizArrayBuffer = null;
+        state.generatedQuizTitle = '';
+        state.generatedPPTArrayBuffer = null;
+        state.generatedPPTTitle = '';
+        state.generatedLessonPlanArrayBuffer = null;
+        state.generatedLessonPlanTitle = '';
+      }
+      
+      renderFiles();
+      renderPDFViewer();
+      updateChatInputState();
+      updateDropdownVisibility();
+      
+      if (state.generatedQuizJSON) document.getElementById('live-quiz-launch-container').classList.remove('hide');
+      else document.getElementById('live-quiz-launch-container').classList.add('hide');
+
+      switchMobileTab('pdf'); // Auto jump to doc viewer on mobile natively
+    }
+
+    function deleteFile(id, e) {
+      e.stopPropagation();
+      state.files = state.files.filter(f => f.id !== id);
+      if(state.selectedFileId === id) selectFile(state.files.length ? state.files[0].id : null);
+      else renderFiles();
+      showToast("Document deleted.", "info");
+    }
+
+    function renderFiles() {
+      const container = document.getElementById('file-list');
+      if(!state.files.length) {
+        container.innerHTML = `
+          <div class="text-center py-8 opacity-40 font-mono">
+            <i class="fa-regular fa-file-lines text-2xl md:text-3xl mb-2 text-bee-500"></i>
+            <p class="text-[9px] md:text-[10px] uppercase font-bold">No notebooks added</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = state.files.map(f => `
+        <div onclick="selectFile('${f.id}')" class="p-2 md:p-3 border-2 cursor-pointer flex items-center justify-between transition-all brutal-shadow ${
+          state.selectedFileId === f.id 
+            ? 'bg-bee-400/10 border-bee-500 text-bee-600 dark:text-bee-400' 
+            : 'border-black dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-400 hover:border-bee-400'
+        }">
+          <div class="flex items-center gap-2 overflow-hidden w-4/5 font-mono">
+            <i class="fa-regular fa-file-pdf"></i>
+            <div class="truncate text-[10px] md:text-xs font-bold uppercase">${f.name}</div>
+          </div>
+          <button onclick="deleteFile('${f.id}', event)" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash text-sm"></i></button>
+        </div>
+      `).join('');
+    }
+
+    async function renderPDFViewer() {
+      const emptyState = document.getElementById('pdf-empty-state');
+      const header = document.getElementById('pdf-header');
+      const container = document.getElementById('pdf-render-container');
+      const status = document.getElementById('pdf-parsing-status');
+      
+      const file = state.files.find(f => f.id === state.selectedFileId);
+      
+      if(!file) {
+        emptyState.classList.remove('hide');
+        header.classList.add('hide');
+        container.classList.add('hide');
+        return;
+      }
+
+      emptyState.classList.add('hide');
+      header.classList.remove('hide');
+      container.classList.remove('hide');
+      document.getElementById('pdf-title').innerText = file.name;
+      
+      if(file.isParsing) status.classList.remove('hide');
+      else status.classList.add('hide');
+
+      if (file.isSample) {
+        container.innerHTML = `
+          <div class="w-full max-w-xl mx-auto space-y-4 font-mono">
+            <div class="p-4 bg-yellow-400 text-black border-4 border-black brutal-shadow uppercase text-center font-black text-[10px] md:text-xs">
+              Syllabus Notebook Sandbox Active (Visual Preview Disabled)
+            </div>
+            ${file.parsedData.map(p => `
+              <div class="p-4 md:p-6 border-4 border-black bg-white dark:bg-neutral-900 brutal-shadow text-[10px] md:text-xs leading-relaxed">
+                <div class="font-extrabold uppercase text-bee-600 dark:text-bee-400 mb-2 pb-1 border-b border-dashed border-neutral-300">LECTURE SHEETS — PAGE ${p.pageNumber}</div>
+                <p class="whitespace-pre-line font-medium">${p.text}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `<div class="w-full flex justify-center py-10 opacity-50"><i class="fa-solid fa-spinner fa-spin text-2xl text-bee-500"></i></div>`;
+      
+      try {
+        const pdf = await pdfjsLib.getDocument(file.url).promise;
+        container.innerHTML = '';
+        for(let i=1; i<=pdf.numPages; i++) {
+          const canvas = document.createElement('canvas');
+          canvas.className = "shadow-[4px_4px_0px_0px_rgba(0,0,0,0.15)] bg-white mb-6 max-w-full h-auto border-4 border-black";
+          container.appendChild(canvas);
+          
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+        }
+      } catch(err) {
+        container.innerHTML = `<div class="text-red-500 font-bold uppercase text-[10px] md:text-xs text-center py-10">Failed to render PDF visual</div>`;
+      }
+    }
+
+    function updateChatInputState() {
+      const input = document.getElementById('chat-input');
+      const btn = document.getElementById('chat-submit');
+      if (state.selectedFileId) {
+        input.disabled = false; btn.disabled = false;
+        input.placeholder = "Ask LessonBee standard queries...";
+      } else {
+        input.disabled = true; btn.disabled = true;
+        input.placeholder = "Upload a PDF first to begin.";
+      }
+    }
+
+    function renderChat() {
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = state.messages.map(m => {
+        const isUser = m.role === 'user';
+        const classes = isUser 
+          ? 'bg-bee-400 text-black border-black' 
+          : (m.type === 'error' ? 'bg-red-500/10 text-red-500 border-red-500' : 'bg-neutral-100 border-black text-neutral-900 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white');
+        
+        return `
+          <div class="flex flex-col ${isUser ? 'items-end' : 'items-start'} font-mono">
+            <div class="max-w-[85%] p-2.5 md:p-3 text-[10px] md:text-xs leading-relaxed border-2 ${classes} brutal-shadow">
+              <p class="whitespace-pre-line font-medium">${m.text}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+      
+      try {
+        renderMathInElement(container, {
+          delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ],
+          throwOnError: false
+        });
+      } catch(err) { console.error("KaTeX failed to render: ", err); }
+    }
+
+    document.getElementById('chat-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = document.getElementById('chat-input').value.trim();
+      if(!val) return;
+      
+      state.messages.push({ role: 'user', text: val });
+      document.getElementById('chat-input').value = '';
+      renderChat();
+      processAIRequest(val, 'normal');
+    });
+
+    // Real API implementation utilizing environment injected API Keys
+    async function makeGeminiApiCall(payload) {
+      // Fetch model string dynamically from select dropdown
+      const model = document.getElementById('model-select').value || "gemini-2.5-flash";
+      const keyToUse = apiKey || state.apiKey;
+      const actualUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToUse}`;
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          const response = await fetch(actualUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (response.ok) return await response.json();
+          const errData = await response.json();
+          if (response.status === 429 || response.status >= 500) {
+            if (attempt < 5) { await new Promise(res => setTimeout(res, delays[attempt])); continue; }
+          }
+          throw new Error(errData.error?.message || `HTTP Error ${response.status}`);
+        } catch (err) {
+          if (attempt < 5 && err.message.includes('Failed to fetch')) { await new Promise(res => setTimeout(res, delays[attempt])); continue; }
+          throw err;
+        }
+      }
+    }
+
+    function handleGenerate(type) {
+      if(!state.selectedFileId) return showToast("Please select a syllabus document first.", "warning");
+      const prompts = {
+        'quiz': "Generate a curriculum quiz",
+        'ppt': "Generate a presentation outline",
+        'lessonplan': "Generate a detailed lesson plan"
+      };
+      processAIRequest(prompts[type], type);
+    }
+
+    async function processAIRequest(prompt, type) {
+      const file = state.files.find(f => f.id === state.selectedFileId);
+      state.isTyping = true;
+      document.getElementById('typing-indicator').classList.remove('hide');
+      document.getElementById('chat-input').disabled = true;
+      document.getElementById('chat-submit').disabled = true;
+
+      let replyText = "";
+      let success = true;
+
+      if (state.useSandboxAI) {
+        if (!file.isSample && ['quiz', 'ppt', 'lessonplan'].includes(type)) {
+          replyText = `⚠️ **Sandbox Limitation:** Cannot generate a specific ${type} for custom uploaded files without an API key. Sandbox generations are locked to the Quantum Demo. Please switch to Live API mode to generate materials specifically for "${file.name}".`;
+          success = false;
+        } else {
+          await new Promise(r => setTimeout(r, 1200));
+          if (type === 'quiz') {
+            const sampleQuiz = {
+              quizTitle: "Curriculum Performance Sandbox Quiz",
+              questions: [
+                { question: "According to wave-particle duality, what equation rules quantum states?", options: ["Schrödinger: Hψ = Eψ", "Newton: F = ma", "Einstein: E = mc²", "Hooke: F = -kx"], answer: "A", explanation: "Schrödinger's famous wave equation explains quantum state vectors ($H\\psi = E\\psi$)." },
+                { question: "What does Heisenberg's uncertainty principle state?", options: ["Energy is lost in large waves", "Positions and momentum cannot both be perfectly determined", "Atoms contain no electrons", "Gravity moves faster than light"], answer: "B", explanation: "The mechanical limits are governed by the equation $\\Delta x \\Delta p \\ge \\hbar/2$." },
+                { question: "Which model shows quantized atomic energy levels?", options: ["Standard Bohr Model", "Thomson Pudding Model", "Classical Orbiting Model", "String Theory Limit"], answer: "A", explanation: "Bohr's model states orbits are structured at $E = -13.6 \\text{ eV} / n^2$." }
+              ]
+            };
+            state.generatedQuizJSON = sampleQuiz;
+            if (file) file.generatedQuizJSON = sampleQuiz;
+            await compileQuizPDF(sampleQuiz, file.name);
+            replyText = "Generated curriculum quiz handout successfully in Sandbox mode. You can view the live PDF preview or launch the Interactive Test Simulator.";
+          } 
+          else if (type === 'ppt') {
+            const sampleSlides = [
+              { title: "Lesson Introduction: Wave Mechanics", bullets: ["Exploring wave-particle duality and Schrödinger limits.", "How atomic particles operate probabilistically.", "Understanding the quantization constant ($h = 6.626 \\times 10^{-34} \\text{ J}\\cdot\\text{s}$)."] },
+              { title: "The Uncertainty Principle", bullets: ["Uncertainty governs position and momentum boundaries.", "Defined by: $\\Delta x \\Delta p \\ge \\hbar / 2$.", "Fundamental property of physical matter, not poor tools."] }
+            ];
+            await compilePPT(sampleSlides, file.name);
+            replyText = "Generated full presentation outline successfully in Sandbox mode. View slides using the dropdown above.";
+          } 
+          else if (type === 'lessonplan') {
+            const samplePlan = {
+              lessonTitle: "Quantum Mechanics 101 - Introduction",
+              duration: "45 Minutes",
+              objectives: ["Understand wave-particle duality.", "Apply Schrödinger's equation conceptually.", "Explain Heisenberg's Uncertainty Principle."],
+              materials: ["Projector", "Quantum Mechanics Handout", "Interactive Atom Simulator"],
+              activities: [
+                { phase: "Introduction", duration: "10 min", description: "Hook students with the double-slit experiment video." },
+                { phase: "Direct Instruction", duration: "20 min", description: "Explain the transition from classical mechanics to quantum limits. Introduce Hψ = Eψ." },
+                { phase: "Group Discussion", duration: "10 min", description: "Discuss the implications of not knowing position and momentum simultaneously." },
+                { phase: "Conclusion", duration: "5 min", description: "Summarize wave-function collapse and hand out the homework." }
+              ],
+              homework: "Read Chapter 4 on Quantum Superposition."
+            };
+            await compileLessonPlanPDF(samplePlan, file.name);
+            replyText = "Generated automatic lesson plan successfully in Sandbox mode. View the plan using the LessonBee Materials dropdown above.";
+          }
+          else {
+            let matchedSentence = null, matchPage = 1;
+            if (file.parsedData && file.parsedData.length > 0) {
+              const queryWords = prompt.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 3 && !['what', 'when', 'where', 'which', 'how', 'this', 'that', 'from', 'does', 'with', 'have', 'your', 'about'].includes(w));
+              for (const page of file.parsedData) {
+                const sentences = page.text.match(/[^.?!]+[.?!]+/g) || [page.text];
+                for (const sentence of sentences) {
+                   if (queryWords.length > 0 && queryWords.some(w => sentence.toLowerCase().includes(w))) {
+                      matchedSentence = sentence.trim(); matchPage = page.pageNumber; break;
+                   }
+                }
+                if (matchedSentence) break;
+              }
+            }
+            if (matchedSentence) replyText = `### Sandbox Extracted Context from "${file.name}"\n\nFound relevant information on **Page ${matchPage}**:\n> "${matchedSentence}"\n\n*(Note: Insert a Gemini API Key at the top to unlock full intelligent synthesis).*`;
+            else replyText = `### Sandbox Response Regarding: "${file.name}"\n\nYou asked: "${prompt}"\n\nCould not find a direct keyword match in the sandbox document. \n\n*(Simulated Sandbox Mode. Insert your Gemini API key for true LLM answering!)*`;
+          }
+        }
+      } 
+      else {
+        try {
+          const context = file.parsedData ? file.parsedData.map(p => `[Page ${p.pageNumber}]: ${p.text}`).join('\n\n') : "";
+          let sysInst = "You are LessonBee, a brilliant helpful notebook AI for schoolteachers. Respond to educational queries with clear markdown STRICTLY BASED on the provided Context Materials from the selected file. DO NOT include external knowledge or demo content. Include math expressions in LaTeX form using single $ or double $$ delimiters.";
+          let responseSchema = null, responseMimeType = "text/plain";
+          
+          if (type === 'quiz') {
+            sysInst = "You are a curriculum test generator. Generate a 3-question multiple choice Quiz STRICTLY AND EXCLUSIVELY using the provided Context Materials from the selected file. DO NOT use external knowledge, prior training data, or demo content. Ensure the output is valid JSON according to the schema provided.";
+            responseMimeType = "application/json";
+            responseSchema = { type: "OBJECT", properties: { quizTitle: { type: "STRING" }, questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" }, options: { type: "ARRAY", items: { type: "STRING" } }, answer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["question", "options", "answer", "explanation"] } } }, required: ["quizTitle", "questions"] };
+          } else if (type === 'ppt') {
+            sysInst = "You are a lesson presentation generator. Generate a 3-slide lesson deck STRICTLY AND EXCLUSIVELY from the provided Context Materials of the selected file. DO NOT include external information or demo content. Ensure the output is valid JSON according to the schema provided.";
+            responseMimeType = "application/json";
+            responseSchema = { type: "OBJECT", properties: { slides: { type: "ARRAY", items: { type: "OBJECT", properties: { title: { type: "STRING" }, bullets: { type: "ARRAY", items: { type: "STRING" } } }, required: ["title", "bullets"] } } }, required: ["slides"] };
+          } else if (type === 'lessonplan') {
+            sysInst = "You are an expert curriculum designer. Generate a structured lesson plan STRICTLY AND EXCLUSIVELY from the provided Context Materials of the selected file. DO NOT use outside knowledge or demo content. Ensure the output is valid JSON according to the schema.";
+            responseMimeType = "application/json";
+            responseSchema = {
+              type: "OBJECT",
+              properties: {
+                lessonTitle: { type: "STRING" },
+                duration: { type: "STRING" },
+                objectives: { type: "ARRAY", items: { type: "STRING" } },
+                materials: { type: "ARRAY", items: { type: "STRING" } },
+                activities: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: { phase: { type: "STRING" }, duration: { type: "STRING" }, description: { type: "STRING" } },
+                    required: ["phase", "duration", "description"]
+                  }
+                },
+                homework: { type: "STRING" }
+              },
+              required: ["lessonTitle", "duration", "objectives", "materials", "activities", "homework"]
+            };
+          }
+
+          const payload = { 
+            contents: [{ 
+              parts: [{ 
+                text: `Selected File Name: ${file.name}\n\nContext Materials:\n${context}\n\nRequest prompt: ${prompt}\n\nCRITICAL INSTRUCTION: You MUST base your entire response strictly and exclusively on the "Context Materials" provided above from the selected file. DO NOT include information from other sources, demo files, or general knowledge.` 
+              }] 
+            }], 
+            systemInstruction: { parts: [{ text: sysInst }] }, 
+            generationConfig: { responseMimeType: responseMimeType } 
+          };
+
+          if (responseSchema) payload.generationConfig.responseSchema = responseSchema;
+          if (state.googleSearchGrounding && type === 'normal') payload.tools = [{ "google_search": {} }];
+
+          const data = await makeGeminiApiCall(payload);
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) throw new Error("No response returned from Gemini.");
+
+          if (type === 'quiz') {
+            const parsedQuiz = JSON.parse(rawText);
+            state.generatedQuizJSON = parsedQuiz;
+            if (file) file.generatedQuizJSON = parsedQuiz;
+            await compileQuizPDF(parsedQuiz, file.name);
+            replyText = `Generated live curriculum quiz: **${parsedQuiz.quizTitle}** with ${parsedQuiz.questions.length} questions. You can view the formatted handout PDF or launch the classroom interactive test generator from the panel above.`;
+          } else if (type === 'ppt') {
+            const parsedPPT = JSON.parse(rawText);
+            await compilePPT(parsedPPT.slides, file.name);
+            replyText = `Generated live presentation slide deck with ${parsedPPT.slides.length} slides. View and download them via the LessonBee Materials dropdown above.`;
+          } else if (type === 'lessonplan') {
+            const parsedPlan = JSON.parse(rawText);
+            await compileLessonPlanPDF(parsedPlan, file.name);
+            replyText = `Generated live lesson plan: **${parsedPlan.lessonTitle}**. View and download the formatted PDF via the LessonBee Materials dropdown above.`;
+          } else replyText = rawText;
+
+        } catch(err) {
+          console.error(err);
+          if (err.message.includes('Quota exceeded') || err.message.includes('429')) replyText = "⚠️ **API Quota Exceeded:** You have temporarily exhausted your API requests. Please wait a moment and try again.";
+          else replyText = "API Error Occurred: " + err.message;
+          success = false;
+        }
+      }
+
+      state.messages.push({ role: 'assistant', text: replyText, type: success ? type : 'error' });
+      state.isTyping = false;
+      document.getElementById('typing-indicator').classList.add('hide');
+      updateChatInputState();
+      renderChat();
+    }
+
+    // --- Native PDF Generation & Custom Direct Previewing (jsPDF) ---
+    async function compileQuizPDF(quizData, docName) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      doc.setFillColor(26, 26, 26);
+      doc.rect(0, 0, 210, 38, 'F');
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(250, 204, 21);
+      doc.text("LESSONBEE SYLLABUS HANDOUT", 15, 18);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Source Syllabus Material: ${docName}`, 15, 28);
+      
+      let y = 52;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(33, 33, 33);
+      doc.text(quizData.quizTitle || "Classroom Syllabus Evaluation", 15, y);
+      y += 12;
+
+      quizData.questions.forEach((q, idx) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        const questionLines = doc.splitTextToSize(`${idx + 1}. ${q.question}`, 180);
+        doc.text(questionLines, 15, y);
+        y += (questionLines.length * 5) + 2;
+
+        doc.setFont("helvetica", "normal");
+        q.options.forEach((opt, optIdx) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          const letter = String.fromCharCode(65 + optIdx);
+          doc.text(`[  ] ${letter}) ${opt}`, 22, y);
+          y += 6;
+        });
+        y += 4;
+      });
+
+      doc.addPage();
+      doc.setFillColor(242, 242, 242);
+      doc.rect(0, 0, 210, 297, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text("TEACHER KEY & PERFORMANCE METRICS", 15, 25);
+      
+      let keyY = 40;
+      quizData.questions.forEach((q, idx) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(`Q${idx + 1}: Correct Answer (${q.answer})`, 15, keyY);
+        keyY += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const expLines = doc.splitTextToSize(`Explanation: ${q.explanation}`, 175);
+        doc.text(expLines, 15, keyY);
+        keyY += (expLines.length * 5) + 8;
+      });
+
+      state.generatedQuizArrayBuffer = doc.output('arraybuffer');
+      state.generatedQuizTitle = `LessonBee_Quiz_${Date.now()}.pdf`;
+      const file = state.files.find(f => f.id === state.selectedFileId);
+      if (file) {
+        file.generatedQuizJSON = state.generatedQuizJSON;
+        file.generatedQuizArrayBuffer = state.generatedQuizArrayBuffer;
+        file.generatedQuizTitle = state.generatedQuizTitle;
+      }
+      updateDropdownVisibility();
+      document.getElementById('live-quiz-launch-container').classList.remove('hide');
+    }
+
+    async function compilePPT(slides, docName) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      
+      doc.setFillColor(23, 23, 23);
+      doc.rect(0, 0, 297, 210, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(36);
+      doc.setTextColor(250, 204, 21);
+      doc.text("LessonBee Curriculum Deck", 148.5, 90, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(16);
+      doc.setTextColor(229, 229, 229);
+      doc.text(`Document Source: ${docName}`, 148.5, 110, { align: "center" });
+      doc.setFontSize(11);
+      doc.setTextColor(163, 163, 163);
+      doc.text("Generated via LessonBee Notebook LLM Engine", 148.5, 130, { align: "center" });
+
+      slides.forEach(s => {
+        doc.addPage();
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, 297, 210, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(28);
+        doc.setTextColor(17, 24, 39);
+        const titleLines = doc.splitTextToSize(s.title, 260);
+        doc.text(titleLines, 15, 30);
+        let y = 30 + (titleLines.length * 10) + 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(18);
+        doc.setTextColor(55, 65, 81);
+        s.bullets.forEach(b => {
+          const bulletLines = doc.splitTextToSize(`• ${b}`, 250);
+          doc.text(bulletLines, 20, y);
+          y += (bulletLines.length * 8) + 4;
+        });
+      });
+
+      state.generatedPPTArrayBuffer = doc.output('arraybuffer');
+      state.generatedPPTTitle = `LessonBee_Slides_${Date.now()}.pdf`;
+      const file = state.files.find(f => f.id === state.selectedFileId);
+      if (file) {
+        file.generatedPPTArrayBuffer = state.generatedPPTArrayBuffer;
+        file.generatedPPTTitle = state.generatedPPTTitle;
+      }
+      updateDropdownVisibility();
+    }
+
+    async function compileLessonPlanPDF(planData, docName) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      doc.setFillColor(26, 26, 26);
+      doc.rect(0, 0, 210, 38, 'F');
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(250, 204, 21);
+      doc.text("CURRICULUM LESSON PLAN", 15, 18);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Source Syllabus Material: ${docName}`, 15, 28);
+      
+      let y = 50;
+      
+      const addSection = (title, contentLines) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(23, 23, 23);
+        doc.text(title, 15, y);
+        y += 6;
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(55, 65, 81);
+        contentLines.forEach(line => {
+          if (y > 280) { doc.addPage(); y = 20; }
+          const wrapped = doc.splitTextToSize(line, 180);
+          doc.text(wrapped, 15, y);
+          y += (wrapped.length * 5) + 2;
+        });
+        y += 5;
+      };
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      const titleLines = doc.splitTextToSize(`${planData.lessonTitle} (${planData.duration})`, 180);
+      doc.text(titleLines, 15, y);
+      y += (titleLines.length * 6) + 6;
+
+      addSection("Objectives", planData.objectives.map(o => `• ${o}`));
+      addSection("Materials Required", planData.materials.map(m => `• ${m}`));
+      
+      addSection("Activities", planData.activities.map(a => `[${a.duration}] ${a.phase}: ${a.description}`));
+      addSection("Homework / Assessment", [planData.homework]);
+
+      state.generatedLessonPlanArrayBuffer = doc.output('arraybuffer');
+      state.generatedLessonPlanTitle = `LessonBee_Plan_${Date.now()}.pdf`;
+      const file = state.files.find(f => f.id === state.selectedFileId);
+      if (file) {
+        file.generatedLessonPlanArrayBuffer = state.generatedLessonPlanArrayBuffer;
+        file.generatedLessonPlanTitle = state.generatedLessonPlanTitle;
+      }
+      updateDropdownVisibility();
+    }
+
+    async function renderFullscreenPDF(pdfArrayBuffer) {
+      const container = document.getElementById('fullscreen-pdf-render-container');
+      container.innerHTML = `<div class="w-full flex justify-center py-10 opacity-50"><i class="fa-solid fa-spinner fa-spin text-2xl text-bee-500"></i></div>`;
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: pdfArrayBuffer }).promise;
+        container.innerHTML = '';
+        for(let i=1; i<=pdf.numPages; i++) {
+          const canvas = document.createElement('canvas');
+          canvas.className = "shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] bg-white mb-6 max-w-full h-auto border-4 border-black";
+          container.appendChild(canvas);
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+        }
+      } catch(err) {
+        container.innerHTML = `<div class="text-red-500 font-bold uppercase text-[10px] md:text-xs text-center py-10">Failed to render PDF preview: ${err.message}</div>`;
+      }
+    }
+
+    function openFullscreenPDF(type) {
+      let buffer, title, downloadTitle;
+      if (type === 'ppt') { buffer = state.generatedPPTArrayBuffer; title = "Generated Slides"; downloadTitle = state.generatedPPTTitle; }
+      else if (type === 'quiz') { buffer = state.generatedQuizArrayBuffer; title = "Generated Quiz"; downloadTitle = state.generatedQuizTitle; }
+      else if (type === 'lessonplan') { buffer = state.generatedLessonPlanArrayBuffer; title = "Generated Lesson Plan"; downloadTitle = state.generatedLessonPlanTitle; }
+      
+      if (!buffer) return;
+      document.getElementById('fullscreen-pdf-title').innerText = title;
+      
+      document.getElementById('fullscreen-pdf-download-btn').onclick = () => {
+        const blob = new Blob([buffer], { type: 'application/pdf' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = downloadTitle;
+        link.click();
+        showToast("PDF file downloaded successfully!", "success");
+      };
+
+      document.getElementById('view-fullscreen-pdf').classList.remove('hide');
+      renderFullscreenPDF(buffer);
+    }
+
+    function updateDropdownVisibility() {
+      const dropdown = document.getElementById('generated-files-dropdown');
+      if (state.generatedPPTArrayBuffer || state.generatedQuizArrayBuffer || state.generatedLessonPlanArrayBuffer) {
+        dropdown.classList.remove('hide');
+        dropdown.innerHTML = `<option value="">🐝 Materials</option>`;
+        if (state.generatedLessonPlanArrayBuffer) dropdown.innerHTML += `<option value="lessonplan">📁 View Plan</option>`;
+        if (state.generatedPPTArrayBuffer) dropdown.innerHTML += `<option value="ppt">📁 View Slides</option>`;
+        if (state.generatedQuizArrayBuffer) dropdown.innerHTML += `<option value="quiz">📁 View Quiz</option>`;
+      } else dropdown.classList.add('hide');
+    }
+
+    document.getElementById('generated-files-dropdown').addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'ppt' || val === 'quiz' || val === 'lessonplan') openFullscreenPDF(val);
+      e.target.selectedIndex = 0;
+    });
+
+    function closeViewer() {
+      document.getElementById('view-fullscreen-pdf').classList.add('hide');
+      document.getElementById('view-interactive-quiz').classList.add('hide');
+    }
+
+    // Initialize CSS sync
+    toggleTheme(); toggleTheme();
+  </script>
+</body>
+</html>
